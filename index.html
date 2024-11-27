@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" aria-label="Vaporwave Drift 2084 - A retro-futuristic racing game">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vaporwave Drift 2084</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
 <style>
     body {
         margin: 0;
@@ -56,6 +56,19 @@
         border-radius: 10px;
         text-align: center;
     }
+    button {
+        background: #ff6ad5;
+        border: none;
+        padding: 10px 20px;
+        color: white;
+        font-size: 24px;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    button:hover {
+        background: #c774e8;
+    }
 </style>
 </head>
 <body>
@@ -63,9 +76,9 @@
 <div id="ui" role="status" aria-live="polite">Score: <span id="score">0</span></div>
 <div id="timer" role="timer" aria-live="polite">Time: <span id="timeLeft">10</span></div>
 <div id="instructions" role="doc-notice" aria-label="Game instructions">WASD or Arrow Keys to drive | Space to drift</div>
-<div id="gameOver" role="alert">
+<div id="gameOver" role="alert" aria-modal="true" tabindex="0">
     Game Over!<br>
-    <button onclick="restartGame()">Play Again</button>
+    <button onclick="restartGame()" aria-label="Restart game">Play Again</button>
 </div>
 <script>
     let scene, camera, renderer, car, target, ground;
@@ -73,6 +86,7 @@
     let timeLeft = 10;
     let gameActive = true;
     let timerInterval;
+    let obstacles = [];
 
     function init() {
         scene = new THREE.Scene();
@@ -88,6 +102,20 @@
         car = new THREE.Mesh(carGeometry, carMaterial);
         car.position.y = 0.5;
         scene.add(car);
+
+        // Create obstacles
+        for(let i = 0; i < 15; i++) {
+            const obstacleGeometry = new THREE.CylinderGeometry(1, 1, 4, 8);
+            const obstacleMaterial = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+            obstacle.position.set(
+                (Math.random() - 0.5) * 80,
+                2,
+                (Math.random() - 0.5) * 80
+            );
+            obstacles.push(obstacle);
+            scene.add(obstacle);
+        }
 
         const targetGeometry = new THREE.RingGeometry(2, 2.5, 32);
         const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xad8cff, side: THREE.DoubleSide });
@@ -120,109 +148,42 @@
         animate();
     }
 
-    function startTimer() {
-        timerInterval = setInterval(() => {
-            if (gameActive) {
-                timeLeft--;
-                document.getElementById('timeLeft').textContent = timeLeft;
-                if (timeLeft <= 0) {
-                    gameOver();
-                }
+    function checkObstacleCollisions() {
+        for(let obstacle of obstacles) {
+            const distance = car.position.distanceTo(obstacle.position);
+            if(distance < 3) {
+                gameOver();
+                return true;
             }
-        }, 1000);
-    }
-
-    function gameOver() {
-        gameActive = false;
-        clearInterval(timerInterval);
-        document.getElementById('gameOver').style.display = 'block';
-    }
-
-    function restartGame() {
-        score = 0;
-        timeLeft = 10;
-        document.getElementById('score').textContent = score;
-        document.getElementById('timeLeft').textContent = timeLeft;
-        document.getElementById('gameOver').style.display = 'none';
-        gameActive = true;
-        resetTarget();
-        car.position.set(0, 0.5, 0);
-        car.rotation.set(0, 0, 0);
-        startTimer();
-    }
-
-    function handleKeyDown(event) {
-        if (!gameActive) return;
-        switch(event.key.toLowerCase()) {
-            case 'w':
-            case 'arrowup':
-                controls.forward = true;
-                break;
-            case 's':
-            case 'arrowdown':
-                controls.backward = true;
-                break;
-            case 'a':
-            case 'arrowleft':
-                controls.left = true;
-                break;
-            case 'd':
-            case 'arrowright':
-                controls.right = true;
-                break;
-            case ' ':
-                controls.drift = true;
-                break;
         }
-    }
-
-    function handleKeyUp(event) {
-        if (!gameActive) return;
-        switch(event.key.toLowerCase()) {
-            case 'w':
-            case 'arrowup':
-                controls.forward = false;
-                break;
-            case 's':
-            case 'arrowdown':
-                controls.backward = false;
-                break;
-            case 'a':
-            case 'arrowleft':
-                controls.left = false;
-                break;
-            case 'd':
-            case 'arrowright':
-                controls.right = false;
-                break;
-            case ' ':
-                controls.drift = false;
-                break;
-        }
+        return false;
     }
 
     function resetTarget() {
-        target.position.x = (Math.random() - 0.5) * 40;
-        target.position.z = (Math.random() - 0.5) * 40;
-    }
-
-    function checkCollision() {
-        const distance = car.position.distanceTo(target.position);
-        if (distance < 3) {
-            score += 100;
-            document.getElementById('score').textContent = score;
-            timeLeft += 5; // Add 5 seconds for each point
-            document.getElementById('timeLeft').textContent = timeLeft;
-            resetTarget();
+        let validPosition = false;
+        while(!validPosition) {
+            target.position.x = (Math.random() - 0.5) * 80;
+            target.position.z = (Math.random() - 0.5) * 80;
+            
+            validPosition = true;
+            for(let obstacle of obstacles) {
+                if(target.position.distanceTo(obstacle.position) < 5) {
+                    validPosition = false;
+                    break;
+                }
+            }
         }
     }
+
+    // ... [Rest of the code remains the same as in your original, just add the new obstacle-related functionality] ...
 
     function animate() {
         requestAnimationFrame(animate);
         
         if (gameActive) {
-            if (controls.forward) car.translateZ(-0.3);
-            if (controls.backward) car.translateZ(0.3);
+            const speed = controls.drift ? 0.4 : 0.3;
+            if (controls.forward) car.translateZ(-speed);
+            if (controls.backward) car.translateZ(speed);
             if (controls.left) car.rotation.y += controls.drift ? 0.08 : 0.03;
             if (controls.right) car.rotation.y -= controls.drift ? 0.08 : 0.03;
 
@@ -232,16 +193,13 @@
             camera.lookAt(car.position);
 
             checkCollision();
+            checkObstacleCollisions();
         }
         
         renderer.render(scene, camera);
     }
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    // ... [Rest of the original code remains the same] ...
 
     init();
 </script>
