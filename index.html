@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vaporwave Drift 2084</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(180deg, #ff6ad5, #c774e8, #ad8cff);
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #gameCanvas {
+            width: 100vw;
+            height: 100vh;
+        }
+        #ui {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        #instructions {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<div id="ui">Score: <span id="score">0</span></div>
+<div id="instructions">WASD or Arrow Keys to drive | Space to drift</div>
+<script>
+        let scene, camera, renderer, car, target, ground;
+        let score = 0;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gameCanvas'), antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Grid ground
+            const gridHelper = new THREE.GridHelper(100, 100, 0xff6ad5, 0xc774e8);
+            scene.add(gridHelper);
+
+            // Car
+            const carGeometry = new THREE.BoxGeometry(2, 1, 4);
+            const carMaterial = new THREE.MeshPhongMaterial({ color: 0xff6ad5 });
+            car = new THREE.Mesh(carGeometry, carMaterial);
+            car.position.y = 0.5;
+            scene.add(car);
+
+            // Target
+            const targetGeometry = new THREE.RingGeometry(2, 2.5, 32);
+            const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xad8cff, side: THREE.DoubleSide });
+            target = new THREE.Mesh(targetGeometry, targetMaterial);
+            target.rotation.x = Math.PI / 2;
+            resetTarget();
+            scene.add(target);
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(0, 10, 0);
+            scene.add(directionalLight);
+
+            camera.position.set(0, 10, 15);
+            camera.lookAt(car.position);
+
+            // Controls state
+            window.controls = {
+                forward: false,
+                backward: false,
+                left: false,
+                right: false,
+                drift: false
+            };
+
+            // Event listeners
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+
+            animate();
+        }
+
+        function handleKeyDown(event) {
+            switch(event.key.toLowerCase()) {
+                case 'w':
+                case 'arrowup':
+                    controls.forward = true;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    controls.backward = true;
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    controls.left = true;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    controls.right = true;
+                    break;
+                case ' ':
+                    controls.drift = true;
+                    break;
+            }
+        }
+
+        function handleKeyUp(event) {
+            switch(event.key.toLowerCase()) {
+                case 'w':
+                case 'arrowup':
+                    controls.forward = false;
+                    break;
+                case 's':
+                case 'arrowdown':
+                    controls.backward = false;
+                    break;
+                case 'a':
+                case 'arrowleft':
+                    controls.left = false;
+                    break;
+                case 'd':
+                case 'arrowright':
+                    controls.right = false;
+                    break;
+                case ' ':
+                    controls.drift = false;
+                    break;
+            }
+        }
+
+        function resetTarget() {
+            target.position.x = (Math.random() - 0.5) * 40;
+            target.position.z = (Math.random() - 0.5) * 40;
+        }
+
+        function checkCollision() {
+            const distance = car.position.distanceTo(target.position);
+            if (distance < 3) {
+                score += 100;
+                document.getElementById('score').textContent = score;
+                resetTarget();
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Car movement
+            if (controls.forward) car.translateZ(-0.3);
+            if (controls.backward) car.translateZ(0.3);
+            if (controls.left) car.rotation.y += controls.drift ? 0.08 : 0.03;
+            if (controls.right) car.rotation.y -= controls.drift ? 0.08 : 0.03;
+
+            // Camera follow
+            const cameraOffset = new THREE.Vector3(0, 10, 15);
+            cameraOffset.applyQuaternion(car.quaternion);
+            camera.position.copy(car.position).add(cameraOffset);
+            camera.lookAt(car.position);
+
+            checkCollision();
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        init();
+    </script>
+</body>
+</html>
