@@ -1,71 +1,199 @@
-I'll help improve the collision detection and add target circles on the ground. Here are the key changes needed:
-
-1. Add visual target circles on the ground
-2. Improve collision detection with proper radius/distance checks
-3. Keep all working code intact
-
-Here are the specific modifications to make to your existing code:
-
-1. In the `init()` function, after creating the target, add this code to create a target ring on the ground:
-
-```javascript
-// Inside init(), after creating the target:
-const ringGeometry = new THREE.RingGeometry(1, 1.2, 32);
-const ringMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0xffff00,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.5
-});
-const targetRing = new THREE.Mesh(ringGeometry, ringMaterial);
-targetRing.rotation.x = -Math.PI / 2;
-targetRing.position.y = 0.01;
-scene.add(targetRing);
-
-// Store reference to ring
-target.ring = targetRing;
-```
-
-2. Replace the `checkCollisions()` function with this improved version:
-
-```javascript
-function checkCollisions() {
-    // Check target collision using distance
-    const distanceToTarget = car.position.distanceTo(target.position);
-    if (distanceToTarget < 2) { // Adjust collision radius as needed
-        score += 10;
-        document.getElementById('score').textContent = score;
-        respawnTarget();
-    }
-
-    // Check obstacle collisions using distance
-    for (let obstacle of obstacles) {
-        const distanceToObstacle = car.position.distanceTo(obstacle.position);
-        if (distanceToObstacle < 2) { // Adjust collision radius as needed
-            gameOver();
-            break;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Racing Game</title>
+    <style>
+        body { margin: 0; }
+        canvas { display: block; }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 24px;
         }
-    }
-}
-```
+        #gameOver {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 48px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="gameOver">
+        Game Over!<br>
+        Press Space to Restart
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, car, target, obstacles = [], score = 0;
+        let gameActive = true;
+        let moveForward = false, moveBackward = false, turnLeft = false, turnRight = false;
 
-3. Update the `respawnTarget()` function to move the ring with the target:
+        init();
+        animate();
 
-```javascript
-function respawnTarget() {
-    const newX = Math.random() * 40 - 20;
-    const newZ = Math.random() * 40 - 20;
-    target.position.set(newX, 0.5, newZ);
-    target.ring.position.set(newX, 0.01, newZ);
-}
-```
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
 
-These changes will:
-- Add visible target circles on the ground
-- Use distance-based collision detection which is more reliable
-- Keep the target ring synchronized with the target sphere
-- Maintain all existing game functionality
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(50, 50);
+            const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            scene.add(ground);
 
-The rest of your code can remain exactly the same. These modifications will make the game more visually appealing and improve the collision detection without breaking any existing features.
+            // Car
+            const carGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+            const carMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            car = new THREE.Mesh(carGeometry, carMaterial);
+            car.position.y = 0.25;
+            scene.add(car);
 
-Would you like me to provide the complete updated HTML file with these changes integrated?
+            // Target
+            const targetGeometry = new THREE.SphereGeometry(0.5);
+            const targetMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+            target = new THREE.Mesh(targetGeometry, targetMaterial);
+            scene.add(target);
+
+            // Target Ring
+            const ringGeometry = new THREE.RingGeometry(1, 1.2, 32);
+            const ringMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffff00,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.5
+            });
+            const targetRing = new THREE.Mesh(ringGeometry, ringMaterial);
+            targetRing.rotation.x = -Math.PI / 2;
+            targetRing.position.y = 0.01;
+            scene.add(targetRing);
+            target.ring = targetRing;
+
+            respawnTarget();
+
+            // Obstacles
+            for(let i = 0; i < 10; i++) {
+                const obstacleGeometry = new THREE.BoxGeometry(2, 2, 2);
+                const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+                obstacle.position.set(
+                    Math.random() * 40 - 20,
+                    1,
+                    Math.random() * 40 - 20
+                );
+                obstacles.push(obstacle);
+                scene.add(obstacle);
+            }
+
+            camera.position.y = 10;
+            camera.position.z = 10;
+            camera.lookAt(car.position);
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+        }
+
+        function onKeyDown(event) {
+            switch(event.code) {
+                case 'ArrowUp': moveForward = true; break;
+                case 'ArrowDown': moveBackward = true; break;
+                case 'ArrowLeft': turnLeft = true; break;
+                case 'ArrowRight': turnRight = true; break;
+                case 'Space': 
+                    if(!gameActive) restartGame();
+                    break;
+            }
+        }
+
+        function onKeyUp(event) {
+            switch(event.code) {
+                case 'ArrowUp': moveForward = false; break;
+                case 'ArrowDown': moveBackward = false; break;
+                case 'ArrowLeft': turnLeft = false; break;
+                case 'ArrowRight': turnRight = false; break;
+            }
+        }
+
+        function updateCar() {
+            if(!gameActive) return;
+
+            if(moveForward) car.translateZ(0.2);
+            if(moveBackward) car.translateZ(-0.2);
+            if(turnLeft) car.rotation.y += 0.05;
+            if(turnRight) car.rotation.y -= 0.05;
+
+            camera.position.x = car.position.x;
+            camera.position.z = car.position.z + 10;
+            camera.lookAt(car.position);
+        }
+
+        function checkCollisions() {
+            if(!gameActive) return;
+
+            const distanceToTarget = car.position.distanceTo(target.position);
+            if(distanceToTarget < 2) {
+                score += 10;
+                document.getElementById('score').textContent = `Score: ${score}`;
+                respawnTarget();
+            }
+
+            for(let obstacle of obstacles) {
+                const distanceToObstacle = car.position.distanceTo(obstacle.position);
+                if(distanceToObstacle < 2) {
+                    gameOver();
+                    break;
+                }
+            }
+        }
+
+        function respawnTarget() {
+            const newX = Math.random() * 40 - 20;
+            const newZ = Math.random() * 40 - 20;
+            target.position.set(newX, 0.5, newZ);
+            target.ring.position.set(newX, 0.01, newZ);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            gameActive = true;
+            score = 0;
+            document.getElementById('score').textContent = 'Score: 0';
+            document.getElementById('gameOver').style.display = 'none';
+            car.position.set(0, 0.25, 0);
+            car.rotation.set(0, 0, 0);
+            respawnTarget();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            updateCar();
+            checkCollisions();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
